@@ -1,0 +1,583 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DoggieFinder - Ветеринарная клиника</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #0a1628;
+            color: white;
+            overflow-x: hidden;
+        }
+
+        /* Паттерн с костями на фоне */
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-image: 
+                radial-gradient(circle at 10% 20%, rgba(255, 255, 255, 0.03) 0%, transparent 50%),
+                radial-gradient(circle at 80% 80%, rgba(255, 255, 255, 0.03) 0%, transparent 50%);
+            background-size: 200px 200px;
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        /* Кости на фоне */
+        .bone-pattern {
+            position: fixed;
+            width: 100%;
+            height: 100%;
+            top: 0;
+            left: 0;
+            pointer-events: none;
+            z-index: 0;
+            opacity: 0.15;
+        }
+
+        .bone {
+            position: absolute;
+            font-size: 24px;
+            opacity: 0.3;
+            transform: rotate(var(--rotation));
+        }
+
+        /* Экран загрузки */
+        #loader {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: #0a1628;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 9999;
+            transition: opacity 0.5s ease-out;
+        }
+
+        #loader.hidden {
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .dog-animation {
+            font-size: 80px;
+            animation: runDog 2s ease-in-out infinite;
+        }
+
+        @keyframes runDog {
+            0%, 100% { transform: translateX(-100vw) scaleX(1); }
+            50% { transform: translateX(100vw) scaleX(1); }
+        }
+
+        /* Контейнер сайта */
+        #site-content {
+            position: relative;
+            z-index: 1;
+            opacity: 0;
+            transition: opacity 0.5s ease-in;
+        }
+
+        #site-content.visible {
+            opacity: 1;
+        }
+
+        /* Навигация */
+        nav {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            background: rgba(30, 58, 138, 0.85);
+            backdrop-filter: blur(10px);
+            padding: 1rem 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            z-index: 100;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: #fb923c;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 2rem;
+            list-style: none;
+        }
+
+        .nav-links a {
+            color: white;
+            text-decoration: none;
+            padding: 0.5rem 1rem;
+            border-radius: 8px;
+            transition: background 0.3s;
+        }
+
+        .nav-links a:hover {
+            background: rgba(255, 255, 255, 0.1);
+        }
+
+        /* Мобильное меню */
+        .burger {
+            display: none;
+            flex-direction: column;
+            gap: 5px;
+            cursor: pointer;
+        }
+
+        .burger div {
+            width: 25px;
+            height: 3px;
+            background: white;
+            transition: 0.3s;
+        }
+
+        /* Секции */
+        section {
+            min-height: 100vh;
+            padding: 100px 2rem 2rem;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .section-title {
+            font-size: 2.5rem;
+            color: #fb923c;
+            margin-bottom: 2rem;
+            text-align: center;
+        }
+
+        /* Главная секция */
+        #home {
+            text-align: center;
+        }
+
+        .hero-image {
+            width: 300px;
+            height: 300px;
+            border-radius: 50%;
+            object-fit: cover;
+            margin: 2rem 0;
+            border: 5px solid #fb923c;
+            box-shadow: 0 10px 30px rgba(251, 146, 60, 0.3);
+        }
+
+        /* Секция поиска собак */
+        .dog-manager {
+            width: 100%;
+            max-width: 1200px;
+            background: rgba(30, 58, 138, 0.3);
+            padding: 2rem;
+            border-radius: 16px;
+            backdrop-filter: blur(10px);
+        }
+
+        .dog-form {
+            display: grid;
+            gap: 1rem;
+            margin-bottom: 2rem;
+        }
+
+        .form-row {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+        }
+
+        input, select, button {
+            padding: 0.75rem;
+            border-radius: 8px;
+            border: none;
+            font-size: 1rem;
+        }
+
+        input, select {
+            background: rgba(255, 255, 255, 0.9);
+        }
+
+        button {
+            background: #fb923c;
+            color: white;
+            font-weight: bold;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+
+        button:hover {
+            background: #f97316;
+        }
+
+        .dogs-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 1.5rem;
+            margin-top: 2rem;
+        }
+
+        .dog-card {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 1.5rem;
+            border-radius: 12px;
+            backdrop-filter: blur(10px);
+            transition: transform 0.3s;
+        }
+
+        .dog-card:hover {
+            transform: translateY(-5px);
+        }
+
+        .dog-card img {
+            width: 100%;
+            height: 200px;
+            object-fit: cover;
+            border-radius: 8px;
+            margin-bottom: 1rem;
+        }
+
+        .dog-card h3 {
+            color: #fb923c;
+            margin-bottom: 0.5rem;
+        }
+
+        .dog-card-actions {
+            display: flex;
+            gap: 0.5rem;
+            margin-top: 1rem;
+        }
+
+        .dog-card-actions button {
+            flex: 1;
+            padding: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .btn-edit {
+            background: #3b82f6;
+        }
+
+        .btn-edit:hover {
+            background: #2563eb;
+        }
+
+        .btn-delete {
+            background: #ef4444;
+        }
+
+        .btn-delete:hover {
+            background: #dc2626;
+        }
+
+        /* Контакты и О нас */
+        .info-box {
+            max-width: 800px;
+            background: rgba(30, 58, 138, 0.3);
+            padding: 2rem;
+            border-radius: 16px;
+            backdrop-filter: blur(10px);
+            text-align: center;
+        }
+
+        .info-box p {
+            margin: 1rem 0;
+            line-height: 1.6;
+        }
+
+        .contact-info {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+            margin-top: 2rem;
+        }
+
+        /* Адаптивность */
+        @media (max-width: 768px) {
+            .nav-links {
+                position: fixed;
+                right: -100%;
+                top: 70px;
+                flex-direction: column;
+                background: rgba(30, 58, 138, 0.95);
+                width: 100%;
+                padding: 2rem;
+                transition: right 0.3s;
+            }
+
+            .nav-links.active {
+                right: 0;
+            }
+
+            .burger {
+                display: flex;
+            }
+
+            .section-title {
+                font-size: 2rem;
+            }
+
+            .dog-animation {
+                font-size: 60px;
+            }
+
+            nav {
+                padding: 1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Экран загрузки -->
+    <div id="loader">
+        <div class="dog-animation">🐕</div>
+    </div>
+
+    <!-- Паттерн с костями -->
+    <div class="bone-pattern" id="bonePattern"></div>
+
+    <!-- Основной контент -->
+    <div id="site-content">
+        <!-- Навигация -->
+        <nav>
+            <div class="logo">
+                <span>🦴</span>
+                <span>DoggieFinder</span>
+            </div>
+            <ul class="nav-links" id="navLinks">
+                <li><a href="#home">Главная</a></li>
+                <li><a href="#search">Поиск собак</a></li>
+                <li><a href="#contacts">Контакты</a></li>
+                <li><a href="#about">О нас</a></li>
+            </ul>
+            <div class="burger" id="burger">
+                <div></div>
+                <div></div>
+                <div></div>
+            </div>
+        </nav>
+
+        <!-- Главная -->
+        <section id="home">
+            <h1 class="section-title">Добро пожаловать в DoggieFinder!</h1>
+            <img src="https://images.unsplash.com/photo-1587300003388-59208cc962cb?w=400&h=400&fit=crop" alt="Счастливая собака" class="hero-image">
+            <p style="font-size: 1.2rem; max-width: 600px; margin: 1rem auto;">
+                Современная ветеринарная клиника с удобной системой управления информацией о ваших питомцах
+            </p>
+        </section>
+
+        <!-- Поиск собак -->
+        <section id="search">
+            <h2 class="section-title">База данных собак</h2>
+            <div class="dog-manager">
+                <form class="dog-form" id="dogForm">
+                    <div class="form-row">
+                        <input type="text" id="dogName" placeholder="Имя собаки" required>
+                        <input type="text" id="dogBreed" placeholder="Порода" required>
+                        <input type="number" id="dogAge" placeholder="Возраст" min="0" required>
+                    </div>
+                    <div class="form-row">
+                        <input type="text" id="dogOwner" placeholder="Владелец" required>
+                        <input type="url" id="dogImage" placeholder="URL фото собаки">
+                    </div>
+                    <button type="submit" id="submitBtn">Добавить собаку</button>
+                </form>
+                <div class="dogs-grid" id="dogsGrid"></div>
+            </div>
+        </section>
+
+        <!-- Контакты -->
+        <section id="contacts">
+            <h2 class="section-title">Контакты</h2>
+            <div class="info-box">
+                <img src="https://images.unsplash.com/photo-1576201836106-db1758fd1c97?w=400&h=300&fit=crop" alt="Клиника" style="width: 100%; border-radius: 12px; margin-bottom: 1rem;">
+                <div class="contact-info">
+                    <p>📍 Адрес: г. Астана, ул. Жиембет Жырау, д. 2</p>
+                    <p>📞 Телефон: +7 (777) 777-77-77</p>
+                    <p>📧 Email: info@doggiefinder.kz</p>
+                    <p>🕐 Режим работы: Пн-Вс, 9:00 - 21:00</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- О нас -->
+        <section id="about">
+            <h2 class="section-title">О нас</h2>
+            <div class="info-box">
+                <img src="https://images.unsplash.com/photo-1548199973-03cce0bbc87b?w=400&h=300&fit=crop" alt="Ветеринар с собакой" style="width: 100%; border-radius: 12px; margin-bottom: 1rem;">
+                <p>
+                    DoggieFinder - это современная ветеринарная клиника, специализирующаяся на заботе о собаках. 
+                    Мы предоставляем полный спектр ветеринарных услуг и ведём удобную базу данных всех наших пациентов.
+                </p>
+                <p>
+                    Наша команда опытных ветеринаров использует современные технологии для обеспечения наилучшего 
+                    ухода за вашими питомцами. Система DoggieFinder позволяет быстро находить информацию о каждой 
+                    собаке и отслеживать историю её посещений.
+                </p>
+            </div>
+        </section>
+    </div>
+
+    <script>
+        // Данные собак (хранилище в памяти)
+        let dogs = [
+            {
+                id: 1,
+                name: 'Бобик',
+                breed: 'Лабрадор',
+                age: 3,
+                owner: 'Иван Петров',
+                image: 'https://images.unsplash.com/photo-1561037404-61cd46aa615b?w=300&h=200&fit=crop'
+            },
+            {
+                id: 2,
+                name: 'Рекс',
+                breed: 'Немецкая овчарка',
+                age: 5,
+                owner: 'Мария Сидорова',
+                image: 'https://images.unsplash.com/photo-1568572933382-74d440642117?w=300&h=200&fit=crop'
+            },
+            {
+                id: 3,
+                name: 'Джек',
+                breed: 'Джек Рассел',
+                age: 2,
+                owner: 'Алексей Иванов',
+                image: 'https://images.unsplash.com/photo-1477884213360-7e9d7dcc1e48?w=300&h=200&fit=crop'
+            }
+        ];
+        let editingId = null;
+
+        // Генерация костей на фоне
+        function generateBones() {
+            const pattern = document.getElementById('bonePattern');
+            const boneCount = 30;
+            
+            for (let i = 0; i < boneCount; i++) {
+                const bone = document.createElement('div');
+                bone.className = 'bone';
+                bone.textContent = '🦴';
+                bone.style.left = Math.random() * 100 + '%';
+                bone.style.top = Math.random() * 100 + '%';
+                bone.style.setProperty('--rotation', Math.random() * 360 + 'deg');
+                pattern.appendChild(bone);
+            }
+        }
+
+        // Загрузка сайта
+        window.addEventListener('load', () => {
+            setTimeout(() => {
+                document.getElementById('loader').classList.add('hidden');
+                document.getElementById('site-content').classList.add('visible');
+            }, 2000);
+        });
+
+        // Мобильное меню
+        document.getElementById('burger').addEventListener('click', () => {
+            document.getElementById('navLinks').classList.toggle('active');
+        });
+
+        // Плавная прокрутка
+        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+            anchor.addEventListener('click', function(e) {
+                e.preventDefault();
+                const target = document.querySelector(this.getAttribute('href'));
+                if (target) {
+                    target.scrollIntoView({ behavior: 'smooth' });
+                    document.getElementById('navLinks').classList.remove('active');
+                }
+            });
+        });
+
+        // CRUD функции
+        function renderDogs() {
+            const grid = document.getElementById('dogsGrid');
+            grid.innerHTML = dogs.map(dog => `
+                <div class="dog-card">
+                    <img src="${dog.image || 'https://images.unsplash.com/photo-1543466835-00a7907e9de1?w=300&h=200&fit=crop'}" alt="${dog.name}">
+                    <h3>${dog.name}</h3>
+                    <p><strong>Порода:</strong> ${dog.breed}</p>
+                    <p><strong>Возраст:</strong> ${dog.age} лет</p>
+                    <p><strong>Владелец:</strong> ${dog.owner}</p>
+                    <div class="dog-card-actions">
+                        <button class="btn-edit" onclick="editDog(${dog.id})">Редактировать</button>
+                        <button class="btn-delete" onclick="deleteDog(${dog.id})">Удалить</button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function editDog(id) {
+            const dog = dogs.find(d => d.id === id);
+            if (dog) {
+                document.getElementById('dogName').value = dog.name;
+                document.getElementById('dogBreed').value = dog.breed;
+                document.getElementById('dogAge').value = dog.age;
+                document.getElementById('dogOwner').value = dog.owner;
+                document.getElementById('dogImage').value = dog.image || '';
+                document.getElementById('submitBtn').textContent = 'Обновить собаку';
+                editingId = id;
+            }
+        }
+
+        function deleteDog(id) {
+            if (confirm('Удалить эту собаку из базы данных?')) {
+                dogs = dogs.filter(d => d.id !== id);
+                renderDogs();
+            }
+        }
+
+        document.getElementById('dogForm').addEventListener('submit', (e) => {
+            e.preventDefault();
+            
+            const dogData = {
+                name: document.getElementById('dogName').value,
+                breed: document.getElementById('dogBreed').value,
+                age: parseInt(document.getElementById('dogAge').value),
+                owner: document.getElementById('dogOwner').value,
+                image: document.getElementById('dogImage').value
+            };
+
+            if (editingId) {
+                const index = dogs.findIndex(d => d.id === editingId);
+                dogs[index] = { ...dogs[index], ...dogData };
+                editingId = null;
+                document.getElementById('submitBtn').textContent = 'Добавить собаку';
+            } else {
+                const newDog = {
+                    id: Date.now(),
+                    ...dogData
+                };
+                dogs.push(newDog);
+            }
+
+            e.target.reset();
+            renderDogs();
+        });
+
+        // Инициализация
+        generateBones();
+        renderDogs();
+    </script>
+</body>
+</html>
