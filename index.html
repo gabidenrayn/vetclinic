@@ -1,0 +1,1028 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DoggieFinder - Ветеринарная клиника</title>
+    <link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@400;600;800&family=Onest:wght@300;400;500&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --orange: #fb923c;
+            --orange-deep: #f97316;
+            --navy: #0a1628;
+            --navy-mid: #1e3a8a;
+            --navy-light: rgba(30, 58, 138, 0.35);
+            --white: #ffffff;
+            --text-muted: rgba(255,255,255,0.6);
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        html { scroll-behavior: smooth; }
+
+        body {
+            font-family: 'Onest', sans-serif;
+            background-color: var(--navy);
+            color: var(--white);
+            overflow-x: hidden;
+        }
+
+        /* ── Bone pattern bg ── */
+        .bone-pattern {
+            position: fixed;
+            width: 100%; height: 100%;
+            top: 0; left: 0;
+            pointer-events: none;
+            z-index: 0;
+        }
+        .bone {
+            position: absolute;
+            font-size: 20px;
+            opacity: 0.07;
+            transform: rotate(var(--rotation));
+            animation: floatBone var(--dur, 20s) ease-in-out infinite;
+            animation-delay: var(--delay, 0s);
+        }
+        @keyframes floatBone {
+            0%, 100% { transform: rotate(var(--rotation)) translateY(0px); }
+            50% { transform: rotate(var(--rotation)) translateY(-18px); }
+        }
+
+        /* ── Mesh bg glow ── */
+        body::before {
+            content: '';
+            position: fixed;
+            inset: 0;
+            background:
+                radial-gradient(ellipse 70% 50% at 15% 30%, rgba(251,146,60,0.08) 0%, transparent 60%),
+                radial-gradient(ellipse 60% 60% at 85% 70%, rgba(30,58,138,0.5) 0%, transparent 70%);
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        /* ══════════════════════════════
+           LOADER (unchanged)
+        ══════════════════════════════ */
+        #loader {
+            position: fixed;
+            inset: 0;
+            background-color: var(--navy);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 9999;
+            transition: opacity 0.6s ease-out;
+        }
+        #loader.hidden { opacity: 0; pointer-events: none; }
+        .dog-animation {
+            font-size: 80px;
+            animation: runDog 2s ease-in-out infinite;
+        }
+        @keyframes runDog {
+            0%, 100% { transform: translateX(-100vw) scaleX(1); }
+            50% { transform: translateX(100vw) scaleX(1); }
+        }
+
+        /* ══════════════════════════════
+           SITE CONTENT
+        ══════════════════════════════ */
+        #site-content {
+            position: relative;
+            z-index: 1;
+            opacity: 0;
+            transition: opacity 0.6s ease-in;
+        }
+        #site-content.visible { opacity: 1; }
+
+        /* ══════════════════════════════
+           FLOATING NAV
+        ══════════════════════════════ */
+        nav {
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: calc(100% - 48px);
+            max-width: 1100px;
+            background: rgba(10, 22, 40, 0.75);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 100px;
+            padding: 0.65rem 1.5rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            z-index: 1000;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.4), 0 0 0 1px rgba(251,146,60,0.07);
+            transition: top 0.4s cubic-bezier(.4,0,.2,1),
+                        opacity 0.4s cubic-bezier(.4,0,.2,1),
+                        transform 0.4s cubic-bezier(.4,0,.2,1);
+        }
+        nav.nav-hidden {
+            top: -90px;
+            opacity: 0;
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-family: 'Unbounded', sans-serif;
+            font-size: 1.05rem;
+            font-weight: 700;
+            color: var(--orange);
+            white-space: nowrap;
+            letter-spacing: -0.02em;
+        }
+        .logo-icon { font-size: 1.3rem; }
+
+        .nav-links {
+            display: flex;
+            gap: 0.25rem;
+            list-style: none;
+        }
+        .nav-links a {
+            color: rgba(255,255,255,0.75);
+            text-decoration: none;
+            padding: 0.45rem 1rem;
+            border-radius: 100px;
+            font-size: 0.88rem;
+            font-weight: 500;
+            transition: background 0.25s, color 0.25s;
+        }
+        .nav-links a:hover {
+            background: rgba(251,146,60,0.15);
+            color: var(--orange);
+        }
+
+        .burger {
+            display: none;
+            flex-direction: column;
+            gap: 4px;
+            cursor: pointer;
+            padding: 4px;
+        }
+        .burger div {
+            width: 22px; height: 2px;
+            background: white;
+            border-radius: 2px;
+            transition: 0.3s;
+        }
+
+        /* ══════════════════════════════
+           HERO
+        ══════════════════════════════ */
+        #home {
+            min-height: 100vh;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            align-items: center;
+            padding: 120px 6vw 60px;
+            gap: 4rem;
+            position: relative;
+        }
+
+        .hero-text { position: relative; z-index: 2; }
+
+        .hero-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            background: rgba(251,146,60,0.12);
+            border: 1px solid rgba(251,146,60,0.3);
+            color: var(--orange);
+            font-size: 0.8rem;
+            font-weight: 600;
+            padding: 0.35rem 0.9rem;
+            border-radius: 100px;
+            margin-bottom: 1.5rem;
+            letter-spacing: 0.05em;
+            text-transform: uppercase;
+            animation: fadeSlideUp 0.7s ease both;
+            animation-delay: 0.1s;
+        }
+
+        .hero-title {
+            font-family: 'Unbounded', sans-serif;
+            font-size: clamp(2.2rem, 4.5vw, 4rem);
+            font-weight: 800;
+            line-height: 1.1;
+            letter-spacing: -0.03em;
+            margin-bottom: 1.25rem;
+            animation: fadeSlideUp 0.7s ease both;
+            animation-delay: 0.2s;
+        }
+        .hero-title span { color: var(--orange); }
+
+        .hero-desc {
+            font-size: 1.05rem;
+            color: var(--text-muted);
+            line-height: 1.7;
+            max-width: 420px;
+            margin-bottom: 2.5rem;
+            animation: fadeSlideUp 0.7s ease both;
+            animation-delay: 0.3s;
+        }
+
+        .hero-cta {
+            display: flex;
+            gap: 1rem;
+            flex-wrap: wrap;
+            animation: fadeSlideUp 0.7s ease both;
+            animation-delay: 0.4s;
+        }
+
+        .btn-primary {
+            background: var(--orange);
+            color: white;
+            border: none;
+            padding: 0.85rem 2rem;
+            border-radius: 100px;
+            font-size: 0.95rem;
+            font-weight: 700;
+            cursor: pointer;
+            transition: background 0.2s, transform 0.2s, box-shadow 0.2s;
+            font-family: 'Onest', sans-serif;
+            text-decoration: none;
+            display: inline-block;
+        }
+        .btn-primary:hover {
+            background: var(--orange-deep);
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(251,146,60,0.35);
+        }
+        .btn-ghost {
+            background: transparent;
+            color: white;
+            border: 1.5px solid rgba(255,255,255,0.2);
+            padding: 0.85rem 2rem;
+            border-radius: 100px;
+            font-size: 0.95rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: border-color 0.2s, background 0.2s, transform 0.2s;
+            font-family: 'Onest', sans-serif;
+            text-decoration: none;
+            display: inline-block;
+        }
+        .btn-ghost:hover {
+            border-color: var(--orange);
+            background: rgba(251,146,60,0.08);
+            transform: translateY(-2px);
+        }
+
+        .hero-visual {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            position: relative;
+            animation: fadeSlideUp 0.9s ease both;
+            animation-delay: 0.25s;
+        }
+
+        .hero-ring {
+            position: absolute;
+            border-radius: 50%;
+            border: 1.5px dashed rgba(251,146,60,0.18);
+            animation: rotateSlow 20s linear infinite;
+        }
+        .hero-ring:nth-child(1) { width: 360px; height: 360px; }
+        .hero-ring:nth-child(2) { width: 420px; height: 420px; animation-direction: reverse; animation-duration: 30s; }
+        @keyframes rotateSlow { to { transform: rotate(360deg); } }
+
+        .hero-image {
+            width: 280px;
+            height: 280px;
+            border-radius: 50%;
+            object-fit: cover;
+            border: 4px solid var(--orange);
+            box-shadow: 0 0 60px rgba(251,146,60,0.25), 0 20px 60px rgba(0,0,0,0.5);
+            position: relative;
+            z-index: 1;
+            transition: transform 0.4s ease;
+        }
+        .hero-image:hover { transform: scale(1.03); }
+
+        .hero-stats {
+            position: absolute;
+            bottom: -10px;
+            right: 0px;
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+            z-index: 2;
+        }
+        .stat-pill {
+            background: rgba(10, 22, 40, 0.9);
+            border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 12px;
+            padding: 0.5rem 0.9rem;
+            backdrop-filter: blur(12px);
+            font-size: 0.8rem;
+        }
+        .stat-pill strong {
+            display: block;
+            font-family: 'Unbounded', sans-serif;
+            color: var(--orange);
+            font-size: 1rem;
+        }
+
+        /* ══════════════════════════════
+           SECTION BASE
+        ══════════════════════════════ */
+        .section {
+            padding: 100px 6vw;
+            position: relative;
+        }
+
+        .section-header {
+            margin-bottom: 3.5rem;
+        }
+        .section-tag {
+            font-size: 0.75rem;
+            font-weight: 700;
+            letter-spacing: 0.12em;
+            text-transform: uppercase;
+            color: var(--orange);
+            margin-bottom: 0.6rem;
+            display: block;
+        }
+        .section-title {
+            font-family: 'Unbounded', sans-serif;
+            font-size: clamp(1.8rem, 3vw, 2.8rem);
+            font-weight: 800;
+            letter-spacing: -0.03em;
+            line-height: 1.15;
+        }
+
+        /* ══════════════════════════════
+           SEARCH / DB SECTION
+        ══════════════════════════════ */
+        #search { background: rgba(255,255,255,0.015); }
+
+        .db-layout {
+            display: grid;
+            grid-template-columns: 340px 1fr;
+            gap: 2rem;
+            align-items: start;
+        }
+
+        .dog-form-panel {
+            background: var(--navy-light);
+            border: 1px solid rgba(255,255,255,0.07);
+            border-radius: 20px;
+            padding: 1.75rem;
+            backdrop-filter: blur(14px);
+            position: sticky;
+            top: 100px;
+        }
+
+        .form-title {
+            font-family: 'Unbounded', sans-serif;
+            font-size: 1rem;
+            font-weight: 700;
+            margin-bottom: 1.5rem;
+            color: var(--orange);
+        }
+
+        .field-group {
+            display: flex;
+            flex-direction: column;
+            gap: 0.9rem;
+            margin-bottom: 1.25rem;
+        }
+
+        .field-wrap { display: flex; flex-direction: column; gap: 0.35rem; }
+        .field-wrap label {
+            font-size: 0.75rem;
+            font-weight: 600;
+            letter-spacing: 0.06em;
+            text-transform: uppercase;
+            color: var(--text-muted);
+        }
+
+        input, select {
+            background: rgba(255,255,255,0.06);
+            border: 1.5px solid rgba(255,255,255,0.1);
+            color: white;
+            padding: 0.7rem 0.9rem;
+            border-radius: 10px;
+            font-size: 0.9rem;
+            font-family: 'Onest', sans-serif;
+            transition: border-color 0.2s, background 0.2s;
+            outline: none;
+            width: 100%;
+        }
+        input::placeholder { color: rgba(255,255,255,0.3); }
+        input:focus, select:focus {
+            border-color: var(--orange);
+            background: rgba(251,146,60,0.06);
+        }
+
+        button {
+            font-family: 'Onest', sans-serif;
+            cursor: pointer;
+            border: none;
+        }
+
+        #submitBtn {
+            width: 100%;
+            background: var(--orange);
+            color: white;
+            font-weight: 700;
+            padding: 0.85rem;
+            border-radius: 10px;
+            font-size: 0.9rem;
+            transition: background 0.2s, transform 0.15s, box-shadow 0.2s;
+        }
+        #submitBtn:hover {
+            background: var(--orange-deep);
+            transform: translateY(-1px);
+            box-shadow: 0 6px 20px rgba(251,146,60,0.3);
+        }
+
+        .dogs-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+            gap: 1.25rem;
+        }
+
+        .dog-card {
+            background: rgba(255,255,255,0.04);
+            border: 1px solid rgba(255,255,255,0.07);
+            border-radius: 18px;
+            overflow: hidden;
+            transition: transform 0.3s cubic-bezier(.4,0,.2,1),
+                        box-shadow 0.3s cubic-bezier(.4,0,.2,1),
+                        border-color 0.3s;
+            animation: cardIn 0.4s ease both;
+        }
+        @keyframes cardIn {
+            from { opacity: 0; transform: translateY(16px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .dog-card:hover {
+            transform: translateY(-6px);
+            box-shadow: 0 20px 50px rgba(0,0,0,0.4);
+            border-color: rgba(251,146,60,0.25);
+        }
+
+        .dog-card-img {
+            width: 100%;
+            height: 180px;
+            object-fit: cover;
+            display: block;
+            transition: transform 0.4s ease;
+        }
+        .dog-card:hover .dog-card-img { transform: scale(1.04); }
+        .dog-card-img-wrap { overflow: hidden; }
+
+        .dog-card-body { padding: 1.1rem; }
+        .dog-card-body h3 {
+            font-family: 'Unbounded', sans-serif;
+            font-size: 1rem;
+            color: var(--orange);
+            margin-bottom: 0.6rem;
+            font-weight: 700;
+        }
+        .dog-card-body p {
+            font-size: 0.82rem;
+            color: var(--text-muted);
+            margin-bottom: 0.3rem;
+        }
+        .dog-card-body p strong { color: rgba(255,255,255,0.85); }
+
+        .dog-card-actions {
+            display: flex;
+            gap: 0.5rem;
+            margin-top: 1rem;
+        }
+        .dog-card-actions button {
+            flex: 1;
+            padding: 0.5rem;
+            font-size: 0.8rem;
+            font-weight: 600;
+            border-radius: 8px;
+            transition: opacity 0.2s, transform 0.15s;
+        }
+        .dog-card-actions button:hover { transform: translateY(-1px); opacity: 0.88; }
+        .btn-edit { background: #3b82f6; color: white; }
+        .btn-delete { background: #ef4444; color: white; }
+
+        /* ══════════════════════════════
+           CONTACTS
+        ══════════════════════════════ */
+        #contacts .contacts-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 2.5rem;
+            align-items: center;
+        }
+
+        .contacts-img {
+            border-radius: 24px;
+            width: 100%;
+            height: 360px;
+            object-fit: cover;
+            box-shadow: 0 30px 80px rgba(0,0,0,0.5);
+            display: block;
+        }
+
+        .contacts-details { display: flex; flex-direction: column; gap: 1.5rem; }
+
+        .contact-item {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            padding: 1.1rem 1.3rem;
+            background: var(--navy-light);
+            border: 1px solid rgba(255,255,255,0.07);
+            border-radius: 14px;
+            backdrop-filter: blur(10px);
+            transition: border-color 0.2s, transform 0.2s;
+        }
+        .contact-item:hover {
+            border-color: rgba(251,146,60,0.3);
+            transform: translateX(6px);
+        }
+        .contact-icon {
+            font-size: 1.5rem;
+            flex-shrink: 0;
+            width: 42px;
+            text-align: center;
+        }
+        .contact-label {
+            font-size: 0.72rem;
+            text-transform: uppercase;
+            letter-spacing: 0.07em;
+            color: var(--text-muted);
+            font-weight: 600;
+            margin-bottom: 0.2rem;
+        }
+        .contact-value {
+            font-size: 0.95rem;
+            font-weight: 500;
+            color: white;
+        }
+
+        /* ══════════════════════════════
+           ABOUT
+        ══════════════════════════════ */
+        #about .about-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 2.5rem;
+            align-items: center;
+        }
+
+        .about-img {
+            border-radius: 24px;
+            width: 100%;
+            height: 380px;
+            object-fit: cover;
+            box-shadow: 0 30px 80px rgba(0,0,0,0.5);
+            order: 2;
+        }
+
+        .about-text { order: 1; }
+
+        .about-text p {
+            color: var(--text-muted);
+            line-height: 1.8;
+            font-size: 0.98rem;
+            margin-bottom: 1.25rem;
+        }
+
+        .about-features {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 0.75rem;
+            margin-top: 2rem;
+        }
+        .feature-chip {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            background: rgba(251,146,60,0.08);
+            border: 1px solid rgba(251,146,60,0.18);
+            border-radius: 10px;
+            padding: 0.6rem 0.85rem;
+            font-size: 0.82rem;
+            font-weight: 500;
+            color: rgba(255,255,255,0.85);
+            transition: background 0.2s, transform 0.2s;
+        }
+        .feature-chip:hover {
+            background: rgba(251,146,60,0.15);
+            transform: translateY(-2px);
+        }
+
+        /* ══════════════════════════════
+           FOOTER
+        ══════════════════════════════ */
+        footer {
+            text-align: center;
+            padding: 2.5rem 2rem;
+            border-top: 1px solid rgba(255,255,255,0.06);
+            color: var(--text-muted);
+            font-size: 0.82rem;
+        }
+
+        /* ══════════════════════════════
+           SCROLL ANIMATIONS
+        ══════════════════════════════ */
+        .reveal {
+            opacity: 0;
+            transform: translateY(30px);
+            transition: opacity 0.7s ease, transform 0.7s ease;
+        }
+        .reveal.in-view {
+            opacity: 1;
+            transform: none;
+        }
+
+        @keyframes fadeSlideUp {
+            from { opacity: 0; transform: translateY(22px); }
+            to { opacity: 1; transform: none; }
+        }
+
+        /* ══════════════════════════════
+           MOBILE
+        ══════════════════════════════ */
+        @media (max-width: 900px) {
+            nav {
+                width: calc(100% - 24px);
+                padding: 0.6rem 1.2rem;
+                border-radius: 16px;
+            }
+            #home {
+                grid-template-columns: 1fr;
+                text-align: center;
+                padding-top: 130px;
+            }
+            .hero-visual { order: -1; }
+            .hero-cta { justify-content: center; }
+            .hero-desc { margin-left: auto; margin-right: auto; }
+            .hero-stats { display: none; }
+
+            .db-layout { grid-template-columns: 1fr; }
+            .dog-form-panel { position: static; }
+
+            #contacts .contacts-grid,
+            #about .about-grid { grid-template-columns: 1fr; }
+            .about-img { order: -1; }
+
+            .nav-links {
+                position: fixed;
+                right: -100%;
+                top: 0;
+                bottom: 0;
+                flex-direction: column;
+                background: rgba(10, 22, 40, 0.98);
+                width: 280px;
+                padding: 6rem 2rem 2rem;
+                transition: right 0.35s cubic-bezier(.4,0,.2,1);
+                z-index: 999;
+                border-left: 1px solid rgba(255,255,255,0.07);
+                gap: 0.5rem;
+            }
+            .nav-links.active { right: 0; }
+            .nav-links a { font-size: 1rem; padding: 0.75rem 1rem; }
+            .burger { display: flex; z-index: 1001; }
+        }
+
+        @media (max-width: 480px) {
+            .hero-ring { display: none; }
+            .about-features { grid-template-columns: 1fr; }
+            .dog-animation { font-size: 60px; }
+        }
+    </style>
+</head>
+<body>
+
+<!-- ── LOADER ── -->
+<div id="loader">
+    <div class="dog-animation">🐕</div>
+</div>
+
+<!-- ── BONE PATTERN ── -->
+<div class="bone-pattern" id="bonePattern"></div>
+
+<!-- ══════════════════════════════ SITE ══════════════════════════════ -->
+<div id="site-content">
+
+    <!-- NAV -->
+    <nav id="mainNav">
+        <div class="logo">
+            <span class="logo-icon">🦴</span>
+            <span>DoggieFinder</span>
+        </div>
+        <ul class="nav-links" id="navLinks">
+            <li><a href="#home">Главная</a></li>
+            <li><a href="#search">База собак</a></li>
+            <li><a href="#contacts">Контакты</a></li>
+            <li><a href="#about">О нас</a></li>
+        </ul>
+        <div class="burger" id="burger">
+            <div></div><div></div><div></div>
+        </div>
+    </nav>
+
+    <!-- ── HERO ── -->
+    <section id="home">
+        <div class="hero-text">
+            <span class="hero-badge">🐾 Ветеринарная клиника</span>
+            <h1 class="hero-title">
+                Забота о вашем<br><span>питомце</span> —<br>наш приоритет
+            </h1>
+            <p class="hero-desc">
+                Современная система управления информацией о собаках. Удобная база данных, история визитов и всё необходимое для здоровья вашего друга.
+            </p>
+            <div class="hero-cta">
+                <a href="#search" class="btn-primary">Перейти к базе</a>
+                <a href="#about" class="btn-ghost">Узнать больше</a>
+            </div>
+        </div>
+        <div class="hero-visual">
+            <div class="hero-ring"></div>
+            <div class="hero-ring"></div>
+            <img src="https://images.unsplash.com/photo-1587300003388-59208cc962cb?w=400&h=400&fit=crop" alt="Счастливая собака" class="hero-image">
+            <div class="hero-stats">
+                <div class="stat-pill"><strong>500+</strong> пациентов</div>
+                <div class="stat-pill"><strong>9-21</strong> работаем</div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ── SEARCH / DB ── -->
+    <section id="search" class="section">
+        <div class="section-header reveal">
+            <span class="section-tag">База данных</span>
+            <h2 class="section-title">Наши пациенты</h2>
+        </div>
+        <div class="db-layout">
+            <!-- FORM -->
+            <div class="dog-form-panel reveal">
+                <div class="form-title" id="formTitle">Добавить собаку</div>
+                <form id="dogForm">
+                    <div class="field-group">
+                        <div class="field-wrap">
+                            <label>Имя</label>
+                            <input type="text" id="dogName" placeholder="Бобик" required>
+                        </div>
+                        <div class="field-wrap">
+                            <label>Порода</label>
+                            <input type="text" id="dogBreed" placeholder="Лабрадор" required>
+                        </div>
+                        <div class="field-wrap">
+                            <label>Возраст (лет)</label>
+                            <input type="number" id="dogAge" placeholder="3" min="0" required>
+                        </div>
+                        <div class="field-wrap">
+                            <label>Владелец</label>
+                            <input type="text" id="dogOwner" placeholder="Иван Петров" required>
+                        </div>
+                        <div class="field-wrap">
+                            <label>URL фото</label>
+                            <input type="url" id="dogImage" placeholder="https://...">
+                        </div>
+                    </div>
+                    <button type="submit" id="submitBtn">Добавить собаку</button>
+                </form>
+            </div>
+            <!-- GRID -->
+            <div class="dogs-grid" id="dogsGrid"></div>
+        </div>
+    </section>
+
+    <!-- ── CONTACTS ── -->
+    <section id="contacts" class="section">
+        <div class="section-header reveal">
+            <span class="section-tag">Контакты</span>
+            <h2 class="section-title">Приходите к нам</h2>
+        </div>
+        <div class="contacts-grid">
+            <img src="https://images.unsplash.com/photo-1576201836106-db1758fd1c97?w=600&h=400&fit=crop" alt="Клиника" class="contacts-img reveal">
+            <div class="contacts-details reveal">
+                <div class="contact-item">
+                    <div class="contact-icon">📍</div>
+                    <div>
+                        <div class="contact-label">Адрес</div>
+                        <div class="contact-value">г. Астана, ул. Жиембет Жырау, д. 2</div>
+                    </div>
+                </div>
+                <div class="contact-item">
+                    <div class="contact-icon">📞</div>
+                    <div>
+                        <div class="contact-label">Телефон</div>
+                        <div class="contact-value">+7 (777) 777-77-77</div>
+                    </div>
+                </div>
+                <div class="contact-item">
+                    <div class="contact-icon">📧</div>
+                    <div>
+                        <div class="contact-label">Email</div>
+                        <div class="contact-value">info@doggiefinder.kz</div>
+                    </div>
+                </div>
+                <div class="contact-item">
+                    <div class="contact-icon">🕐</div>
+                    <div>
+                        <div class="contact-label">Режим работы</div>
+                        <div class="contact-value">Пн – Вс, 09:00 – 21:00</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ── ABOUT ── -->
+    <section id="about" class="section">
+        <div class="section-header reveal">
+            <span class="section-tag">О нас</span>
+            <h2 class="section-title">Команда, которой<br>доверяют питомцы</h2>
+        </div>
+        <div class="about-grid">
+            <div class="about-text reveal">
+                <p>
+                    DoggieFinder — современная ветеринарная клиника, специализирующаяся на заботе о собаках. Мы предоставляем полный спектр ветеринарных услуг и ведём удобную базу данных всех наших пациентов.
+                </p>
+                <p>
+                    Наша команда опытных ветеринаров использует передовые технологии для обеспечения наилучшего ухода. Система DoggieFinder позволяет мгновенно находить информацию о каждой собаке и отслеживать историю визитов.
+                </p>
+                <div class="about-features">
+                    <div class="feature-chip">🩺 Диагностика</div>
+                    <div class="feature-chip">💉 Вакцинация</div>
+                    <div class="feature-chip">✂️ Груминг</div>
+                    <div class="feature-chip">🏥 Хирургия</div>
+                    <div class="feature-chip">🦷 Стоматология</div>
+                    <div class="feature-chip">🧬 Анализы</div>
+                </div>
+            </div>
+            <img src="https://images.unsplash.com/photo-1548199973-03cce0bbc87b?w=500&h=400&fit=crop" alt="Ветеринар с собакой" class="about-img reveal">
+        </div>
+    </section>
+
+    <footer>
+        <p>© 2025 DoggieFinder. Ветеринарная клиника в Астане 🦴</p>
+    </footer>
+
+</div><!-- end site-content -->
+
+<script>
+    /* ── Dog data ── */
+    let dogs = [
+        { id: 1, name: 'Бобик', breed: 'Лабрадор', age: 3, owner: 'Иван Петров',
+          image: 'https://images.unsplash.com/photo-1561037404-61cd46aa615b?w=300&h=200&fit=crop' },
+        { id: 2, name: 'Рекс', breed: 'Немецкая овчарка', age: 5, owner: 'Мария Сидорова',
+          image: 'https://images.unsplash.com/photo-1568572933382-74d440642117?w=300&h=200&fit=crop' },
+        { id: 3, name: 'Джек', breed: 'Джек Рассел', age: 2, owner: 'Алексей Иванов',
+          image: 'https://images.unsplash.com/photo-1477884213360-7e9d7dcc1e48?w=300&h=200&fit=crop' }
+    ];
+    let editingId = null;
+
+    /* ── Bone pattern ── */
+    function generateBones() {
+        const pattern = document.getElementById('bonePattern');
+        for (let i = 0; i < 28; i++) {
+            const bone = document.createElement('div');
+            bone.className = 'bone';
+            bone.textContent = '🦴';
+            bone.style.left = Math.random() * 100 + '%';
+            bone.style.top = Math.random() * 100 + '%';
+            bone.style.setProperty('--rotation', Math.random() * 360 + 'deg');
+            bone.style.setProperty('--dur', (15 + Math.random() * 20) + 's');
+            bone.style.setProperty('--delay', (-Math.random() * 15) + 's');
+            pattern.appendChild(bone);
+        }
+    }
+
+    /* ── Loader ── */
+    window.addEventListener('load', () => {
+        generateBones();
+        renderDogs();
+        setTimeout(() => {
+            document.getElementById('loader').classList.add('hidden');
+            document.getElementById('site-content').classList.add('visible');
+            initScrollReveal();
+        }, 2000);
+    });
+
+    /* ── Floating nav: hide on scroll down, show on scroll up ── */
+    let lastScroll = 0;
+    const nav = document.getElementById('mainNav');
+    window.addEventListener('scroll', () => {
+        const current = window.scrollY;
+        if (current > lastScroll + 5 && current > 80) {
+            nav.classList.add('nav-hidden');
+        } else if (current < lastScroll - 5 || current < 80) {
+            nav.classList.remove('nav-hidden');
+        }
+        lastScroll = current;
+    }, { passive: true });
+
+    /* ── Burger ── */
+    document.getElementById('burger').addEventListener('click', () => {
+        document.getElementById('navLinks').classList.toggle('active');
+    });
+
+    /* ── Smooth scroll ── */
+    document.querySelectorAll('a[href^="#"]').forEach(a => {
+        a.addEventListener('click', e => {
+            e.preventDefault();
+            const target = document.querySelector(a.getAttribute('href'));
+            if (target) {
+                target.scrollIntoView({ behavior: 'smooth' });
+                document.getElementById('navLinks').classList.remove('active');
+            }
+        });
+    });
+
+    /* ── Scroll reveal ── */
+    function initScrollReveal() {
+        const els = document.querySelectorAll('.reveal');
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach((entry, i) => {
+                if (entry.isIntersecting) {
+                    setTimeout(() => entry.target.classList.add('in-view'), i * 80);
+                    observer.unobserve(entry.target);
+                }
+            });
+        }, { threshold: 0.12 });
+        els.forEach(el => observer.observe(el));
+    }
+
+    /* ── CRUD ── */
+    function renderDogs() {
+        const grid = document.getElementById('dogsGrid');
+        if (!dogs.length) {
+            grid.innerHTML = '<p style="color:var(--text-muted);padding:2rem;">Собаки не добавлены.</p>';
+            return;
+        }
+        grid.innerHTML = dogs.map((dog, idx) => `
+            <div class="dog-card" style="animation-delay:${idx * 0.06}s">
+                <div class="dog-card-img-wrap">
+                    <img class="dog-card-img"
+                         src="${dog.image || 'https://images.unsplash.com/photo-1543466835-00a7907e9de1?w=300&h=200&fit=crop'}"
+                         alt="${dog.name}">
+                </div>
+                <div class="dog-card-body">
+                    <h3>${dog.name}</h3>
+                    <p><strong>Порода:</strong> ${dog.breed}</p>
+                    <p><strong>Возраст:</strong> ${dog.age} лет</p>
+                    <p><strong>Владелец:</strong> ${dog.owner}</p>
+                    <div class="dog-card-actions">
+                        <button class="btn-edit" onclick="editDog(${dog.id})">Изменить</button>
+                        <button class="btn-delete" onclick="deleteDog(${dog.id})">Удалить</button>
+                    </div>
+                </div>
+            </div>
+        `).join('');
+    }
+
+    function editDog(id) {
+        const dog = dogs.find(d => d.id === id);
+        if (!dog) return;
+        document.getElementById('dogName').value = dog.name;
+        document.getElementById('dogBreed').value = dog.breed;
+        document.getElementById('dogAge').value = dog.age;
+        document.getElementById('dogOwner').value = dog.owner;
+        document.getElementById('dogImage').value = dog.image || '';
+        document.getElementById('submitBtn').textContent = 'Обновить';
+        document.getElementById('formTitle').textContent = 'Редактировать';
+        editingId = id;
+        document.getElementById('search').scrollIntoView({ behavior: 'smooth' });
+    }
+
+    function deleteDog(id) {
+        if (confirm('Удалить эту собаку из базы?')) {
+            dogs = dogs.filter(d => d.id !== id);
+            renderDogs();
+        }
+    }
+
+    document.getElementById('dogForm').addEventListener('submit', e => {
+        e.preventDefault();
+        const data = {
+            name: document.getElementById('dogName').value,
+            breed: document.getElementById('dogBreed').value,
+            age: parseInt(document.getElementById('dogAge').value),
+            owner: document.getElementById('dogOwner').value,
+            image: document.getElementById('dogImage').value
+        };
+        if (editingId) {
+            const idx = dogs.findIndex(d => d.id === editingId);
+            dogs[idx] = { ...dogs[idx], ...data };
+            editingId = null;
+            document.getElementById('submitBtn').textContent = 'Добавить собаку';
+            document.getElementById('formTitle').textContent = 'Добавить собаку';
+        } else {
+            dogs.push({ id: Date.now(), ...data });
+        }
+        e.target.reset();
+        renderDogs();
+    });
+</script>
+</body>
+</html>
